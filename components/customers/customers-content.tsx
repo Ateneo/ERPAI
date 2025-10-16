@@ -38,6 +38,11 @@ export function CustomersContent() {
       setIsLoading(true)
       setError(null)
 
+      console.log("[v0] [CustomersContent] Iniciando carga de clientes...")
+      console.log("[v0] Variables de entorno disponibles:")
+      console.log("[v0] - NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "✓" : "✗")
+      console.log("[v0] - NEXT_PUBLIC_SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "✓" : "✗")
+
       console.log("[CustomersContent] Cargando clientes...")
 
       // Cargar clientes y estadísticas en paralelo
@@ -45,6 +50,9 @@ export function CustomersContent() {
         SupabaseCustomerService.getAll(),
         SupabaseCustomerService.getStats(),
       ])
+
+      console.log("[v0] Resultado de getAll:", customersResult)
+      console.log("[v0] Resultado de getStats:", statsResult)
 
       if (customersResult.success && customersResult.data) {
         setCustomers(customersResult.data)
@@ -62,7 +70,9 @@ export function CustomersContent() {
       }
     } catch (error) {
       console.error("[CustomersContent] Error cargando datos:", error)
-      setError(error instanceof Error ? error.message : "Error desconocido")
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+      console.log("[v0] Error detallado:", errorMessage)
+      setError(`Error cargando datos: ${errorMessage}`)
       toast({
         title: "Error",
         description: "No se pudieron cargar los clientes. Inténtalo de nuevo.",

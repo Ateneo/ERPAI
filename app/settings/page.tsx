@@ -681,15 +681,15 @@ export default function SettingsPage() {
 
               <Separator />
 
-              {/* Configuración de Verifactu */}
+              {/* Configuración de Korefactu */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <ExternalLink className="h-5 w-5" />
-                  Integración Verifactu
+                  Integración Korefactu
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Configura la integración con el sistema Verifactu de la AEAT para la validación automática de
-                  clientes.
+                  Configura la integración con Korefactu para el sistema Verifactu de la AEAT para la validación
+                  automática de clientes.
                 </p>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
@@ -698,8 +698,8 @@ export default function SettingsPage() {
                     <div>
                       <h4 className="font-semibold text-amber-900 dark:text-amber-100">Modo Simulación Activo</h4>
                       <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
-                        Actualmente funcionando en modo simulación. Para usar la API real de Verifactu, configura la
-                        variable de entorno VERIFACTU_API_KEY.
+                        Actualmente funcionando en modo simulación. Para usar la API real de Korefactu, configura las
+                        variables de entorno API_KOREFACTU y URL_KOREFACTU.
                       </p>
                     </div>
                   </div>
@@ -707,11 +707,11 @@ export default function SettingsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="verifactu-url">URL de la API</Label>
-                    <Input id="verifactu-url" value="https://api.verifactu.es" disabled className="bg-muted" />
+                    <Label htmlFor="korefactu-url">URL de la API</Label>
+                    <Input id="korefactu-url" value="https://api.korefactu.com" disabled className="bg-muted" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="verifactu-status">Estado</Label>
+                    <Label htmlFor="korefactu-status">Estado</Label>
                     <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                       <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                       <span className="text-sm">Simulación</span>

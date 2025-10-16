@@ -1,10 +1,18 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "./supabase/client"
 
-// Configuración de Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Función helper para obtener el cliente de Supabase
+const getSupabaseClient = () => {
+  console.log("[v0] Creando cliente de Supabase...")
+  console.log(
+    "[v0] NEXT_PUBLIC_SUPABASE_URL:",
+    process.env.NEXT_PUBLIC_SUPABASE_URL ? "✓ Configurado" : "✗ No configurado",
+  )
+  console.log(
+    "[v0] NEXT_PUBLIC_SUPABASE_ANON_KEY:",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "✓ Configurado" : "✗ No configurado",
+  )
+  return createClient()
+}
 
 // Interface completa basada en la estructura de Supabase
 export interface Customer {
@@ -92,28 +100,35 @@ export interface ImportResult {
 
 // Clase de servicio principal
 export class SupabaseCustomerService {
-  // Obtener todos los clientes
   static async getAll(): Promise<ServiceResult<Customer[]>> {
     try {
-      console.log("[SupabaseCustomerService] Obteniendo todos los clientes...")
+      console.log("[v0] [SupabaseCustomerService] Obteniendo todos los clientes...")
 
+      const supabase = getSupabaseClient()
+
+      console.log("[v0] Cliente de Supabase creado, ejecutando consulta...")
       const { data, error } = await supabase.from("customers").select("*").order("created_at", { ascending: false })
 
+      console.log("[v0] Respuesta de Supabase:")
+      console.log("[v0] - Error:", error)
+      console.log("[v0] - Data:", data)
+      console.log("[v0] - Número de registros:", data?.length || 0)
+
       if (error) {
-        console.error("[SupabaseCustomerService] Error:", error)
+        console.error("[v0] [SupabaseCustomerService] Error en consulta:", error)
         return {
           success: false,
           error: `Error obteniendo clientes: ${error.message}`,
         }
       }
 
-      console.log(`[SupabaseCustomerService] ${data?.length || 0} clientes obtenidos`)
+      console.log(`[v0] [SupabaseCustomerService] ${data?.length || 0} clientes obtenidos exitosamente`)
       return {
         success: true,
         data: data || [],
       }
     } catch (error) {
-      console.error("[SupabaseCustomerService] Error en getAll:", error)
+      console.error("[v0] [SupabaseCustomerService] Error en getAll:", error)
       return {
         success: false,
         error: error instanceof Error ? error.message : "Error desconocido",
@@ -121,11 +136,11 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Obtener cliente por ID
   static async getById(id: string): Promise<ServiceResult<Customer>> {
     try {
       console.log("[SupabaseCustomerService] Obteniendo cliente por ID:", id)
 
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase.from("customers").select("*").eq("id", id).single()
 
       if (error) {
@@ -156,13 +171,13 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Crear nuevo cliente
   static async create(
     customerData: Omit<Customer, "id" | "created_at" | "updated_at">,
   ): Promise<ServiceResult<Customer>> {
     try {
       console.log("[SupabaseCustomerService] Creando cliente:", customerData.name)
 
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase
         .from("customers")
         .insert([
@@ -197,11 +212,11 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Actualizar cliente
   static async update(id: string, updates: Partial<Customer>): Promise<ServiceResult<Customer>> {
     try {
       console.log("[SupabaseCustomerService] Actualizando cliente:", id)
 
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase
         .from("customers")
         .update({
@@ -234,11 +249,11 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Eliminar cliente
   static async delete(id: string): Promise<ServiceResult<void>> {
     try {
       console.log("[SupabaseCustomerService] Eliminando cliente:", id)
 
+      const supabase = getSupabaseClient()
       const { error } = await supabase.from("customers").delete().eq("id", id)
 
       if (error) {
@@ -341,11 +356,11 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Buscar clientes
   static async search(query: string): Promise<ServiceResult<Customer[]>> {
     try {
       console.log("[SupabaseCustomerService] Buscando clientes:", query)
 
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -374,11 +389,11 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Filtrar por sector
   static async getBySector(sector: string): Promise<ServiceResult<Customer[]>> {
     try {
       console.log("[SupabaseCustomerService] Obteniendo clientes por sector:", sector)
 
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -525,9 +540,9 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Verificar duplicados
   private static async checkDuplicate(email: string, taxId: string): Promise<boolean> {
     try {
+      const supabase = getSupabaseClient()
       const { data, error } = await supabase
         .from("customers")
         .select("id")
@@ -757,11 +772,11 @@ export class SupabaseCustomerService {
     }
   }
 
-  // Operaciones masivas
   static async bulkUpdateStatus(ids: string[], isActive: boolean): Promise<ServiceResult<void>> {
     try {
       console.log("[SupabaseCustomerService] Actualización masiva de estado para", ids.length, "clientes")
 
+      const supabase = getSupabaseClient()
       const { error } = await supabase
         .from("customers")
         .update({
