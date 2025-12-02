@@ -1,81 +1,17 @@
 "use client"
 
+import type React from "react"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, CheckCircle, AlertCircle, User, Building, CreditCard, FileText, MessageSquare } from "lucide-react"
-import { validateSpanishTaxId } from "@/lib/verifactu-api"
-import { CustomerService } from "@/lib/supabase-customers"
-
-const customerSchema = z.object({
-  // Basic Information
-  name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
-  email: z.string().email("Email no válido"),
-  phone: z.string().min(9, "Teléfono debe tener al menos 9 dígitos"),
-  tax_id: z.string().min(9, "NIF/CIF debe tener 9 caracteres").refine(validateSpanishTaxId, "NIF/CIF no válido"),
-
-  // Address
-  address: z.string().optional(),
-  city: z.string().optional(),
-  postal_code: z.string().optional(),
-  province: z.string().optional(),
-  country: z.string().default("España"),
-
-  // Contact
-  contact_person: z.string().optional(),
-  website: z.string().url("URL no válida").optional().or(z.literal("")),
-
-  // Business
-  sector: z.string().optional(),
-  commercial_name: z.string().optional(),
-  legal_form: z.string().optional(),
-  registration_number: z.string().optional(),
-  registration_date: z.string().optional(),
-  share_capital: z.number().optional(),
-  administrator: z.string().optional(),
-  administrator_nif: z.string().optional(),
-  business_activity: z.string().optional(),
-  cnae_code: z.string().optional(),
-  employees_count: z.number().optional(),
-  annual_revenue: z.number().optional(),
-
-  // Financial
-  credit_limit: z.number().optional(),
-  payment_terms: z.number().optional(),
-  preferred_payment_method: z.string().optional(),
-  bank_account: z.string().optional(),
-  swift_code: z.string().optional(),
-  tax_regime: z.string().optional(),
-  vat_number: z.string().optional(),
-  social_security_number: z.string().optional(),
-  mutual_insurance: z.string().optional(),
-  risk_level: z.enum(["low", "medium", "high"]).optional(),
-
-  // Timeline
-  customer_since: z.string().optional(),
-  last_order_date: z.string().optional(),
-  total_orders: z.number().optional(),
-  average_order_value: z.number().optional(),
-
-  // Notes
-  notes: z.string().optional(),
-})
-
-type CustomerFormData = z.infer<typeof customerSchema>
-
-interface CreateCustomerFormProps {
-  onSuccess?: (customer: any) => void
-  onCancel?: () => void
-}
+import { Loader2, CheckCircle, AlertCircle, User, Building, CreditCard, FileText, ArrowLeft, Save } from "lucide-react"
+import { createBrowserClient } from "@supabase/ssr"
 
 const SPANISH_PROVINCES = [
   "Álava",
@@ -186,100 +122,157 @@ const TAX_REGIMES = [
   "Otros",
 ]
 
-export function CreateCustomerForm({ onSuccess, onCancel }: CreateCustomerFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [taxIdValidation, setTaxIdValidation] = useState<{
-    isValid: boolean
-    message: string
-  } | null>(null)
-  const [submitResult, setSubmitResult] = useState<{
-    success: boolean
-    message: string
-    verifactuSync?: any
-  } | null>(null)
+// Inline validation function
+function validateSpanishTaxId(taxId: string): boolean {
+  if (!taxId || taxId.length !== 9) return false
+  const cleanTaxId = taxId.toUpperCase().replace(/[^A-Z0-9]/g, "")
+  if (cleanTaxId.length !== 9) return false
 
-  const form = useForm<CustomerFormData>({
-    resolver: zodResolver(customerSchema),
-    defaultValues: {
-      country: "España",
-      risk_level: "medium",
-    },
+  const cifLetters = "ABCDEFGHJNPQRSUVW"
+  const firstChar = cleanTaxId[0]
+
+  if (cifLetters.includes(firstChar)) return true
+  if ("XYZ".includes(firstChar)) return true
+  if (/^[0-9KLM]/.test(firstChar)) return true
+
+  return false
+}
+
+interface CreateCustomerFormProps {
+  onSuccess?: (customer: any) => void
+  onCancel?: () => void
+  onBack?: () => void
+  editingCustomer?: any
+}
+
+export function CreateCustomerForm({ onSuccess, onCancel, onBack, editingCustomer }: CreateCustomerFormProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [taxIdValidation, setTaxIdValidation] = useState<{ isValid: boolean; message: string } | null>(null)
+  const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  const [formData, setFormData] = useState({
+    name: editingCustomer?.name || "",
+    email: editingCustomer?.email || "",
+    phone: editingCustomer?.phone || "",
+    tax_id: editingCustomer?.tax_id || "",
+    address: editingCustomer?.address || "",
+    city: editingCustomer?.city || "",
+    postal_code: editingCustomer?.postal_code || "",
+    province: editingCustomer?.province || "",
+    country: editingCustomer?.country || "España",
+    contact_person: editingCustomer?.contact_person || "",
+    website: editingCustomer?.website || "",
+    sector: editingCustomer?.sector || "",
+    commercial_name: editingCustomer?.commercial_name || "",
+    legal_form: editingCustomer?.legal_form || "",
+    business_activity: editingCustomer?.business_activity || "",
+    cnae_code: editingCustomer?.cnae_code || "",
+    employees_count: editingCustomer?.employees_count || "",
+    annual_revenue: editingCustomer?.annual_revenue || "",
+    credit_limit: editingCustomer?.credit_limit || "",
+    payment_terms: editingCustomer?.payment_terms || "30",
+    preferred_payment_method: editingCustomer?.preferred_payment_method || "",
+    bank_account: editingCustomer?.bank_account || "",
+    tax_regime: editingCustomer?.tax_regime || "",
+    risk_level: editingCustomer?.risk_level || "medium",
+    notes: editingCustomer?.notes || "",
+    status: editingCustomer?.status || "active",
   })
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setValue,
-  } = form
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
-  // Watch tax_id for real-time validation
-  const taxId = watch("tax_id")
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
 
-  // Validate tax ID in real-time
-  const handleTaxIdChange = (value: string) => {
-    setValue("tax_id", value.toUpperCase())
-
-    if (value.length === 9) {
+    if (field === "tax_id" && value.length > 0) {
       const isValid = validateSpanishTaxId(value)
       setTaxIdValidation({
         isValid,
         message: isValid ? "NIF/CIF válido" : "NIF/CIF no válido",
       })
-    } else {
+    } else if (field === "tax_id") {
       setTaxIdValidation(null)
     }
   }
 
-  const onSubmit = async (data: CustomerFormData) => {
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {}
+
+    if (!formData.name.trim()) newErrors.name = "El nombre es obligatorio"
+    if (!formData.email.trim()) newErrors.email = "El email es obligatorio"
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "Email no válido"
+    if (!formData.phone.trim()) newErrors.phone = "El teléfono es obligatorio"
+    if (!formData.tax_id.trim()) newErrors.tax_id = "El NIF/CIF es obligatorio"
+    else if (!validateSpanishTaxId(formData.tax_id)) newErrors.tax_id = "NIF/CIF no válido"
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validate()) return
+
     setIsLoading(true)
     setSubmitResult(null)
 
     try {
-      console.log("[Form] Enviando datos del cliente:", data)
-
-      // Convert form data to customer format
       const customerData = {
-        ...data,
+        ...formData,
+        employees_count: formData.employees_count ? Number.parseInt(formData.employees_count) : null,
+        annual_revenue: formData.annual_revenue ? Number.parseFloat(formData.annual_revenue) : null,
+        credit_limit: formData.credit_limit ? Number.parseFloat(formData.credit_limit) : null,
+        payment_terms: formData.payment_terms ? Number.parseInt(formData.payment_terms) : 30,
         is_active: true,
-        verifactu_status: "pending" as const,
+        updated_at: new Date().toISOString(),
       }
 
-      // Create customer
-      const customer = await CustomerService.createCustomer(customerData)
-
-      console.log("[Form] Cliente creado exitosamente:", customer.id)
+      if (editingCustomer?.id) {
+        const { error } = await supabase.from("customers").update(customerData).eq("id", editingCustomer.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from("customers")
+          .insert([{ ...customerData, created_at: new Date().toISOString() }])
+        if (error) throw error
+      }
 
       setSubmitResult({
         success: true,
-        message: "Cliente creado exitosamente",
+        message: editingCustomer ? "Cliente actualizado" : "Cliente creado correctamente",
       })
-
-      // Call success callback
-      if (onSuccess) {
-        onSuccess(customer)
-      }
-    } catch (error) {
-      console.error("[Form] Error creando cliente:", error)
-
-      setSubmitResult({
-        success: false,
-        message: error instanceof Error ? error.message : "Error desconocido al crear el cliente",
-      })
+      setTimeout(() => {
+        onSuccess?.(customerData)
+        onBack?.()
+      }, 1500)
+    } catch (error: any) {
+      setSubmitResult({ success: false, message: error.message || "Error al guardar el cliente" })
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleBack = () => {
+    onBack?.() || onCancel?.()
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={handleBack} className="gap-2">
+          <ArrowLeft className="w-4 h-4" />
+          Volver
+        </Button>
         <div>
-          <h1 className="text-2xl font-bold">Nuevo Cliente</h1>
-          <p className="text-muted-foreground">
-            Completa la información del cliente. Los campos marcados con * son obligatorios.
-          </p>
+          <h1 className="text-2xl font-bold">{editingCustomer ? "Editar Cliente" : "Nuevo Cliente"}</h1>
+          <p className="text-muted-foreground">Los campos marcados con * son obligatorios.</p>
         </div>
       </div>
 
@@ -298,42 +291,42 @@ export function CreateCustomerForm({ onSuccess, onCancel }: CreateCustomerFormPr
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="business">Empresa</TabsTrigger>
             <TabsTrigger value="financial">Financiero</TabsTrigger>
-            <TabsTrigger value="legal">Legal</TabsTrigger>
             <TabsTrigger value="notes">Notas</TabsTrigger>
           </TabsList>
 
-          {/* General Tab */}
           <TabsContent value="general" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Basic Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="w-5 h-5" />
                     Información Básica
                   </CardTitle>
-                  <CardDescription>Datos principales del cliente</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="name">Nombre / Razón Social *</Label>
-                    <Input id="name" {...register("name")} placeholder="Nombre completo o razón social" />
-                    {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>}
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleChange("name", e.target.value)}
+                      placeholder="Nombre completo o razón social"
+                    />
+                    {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
                   </div>
-
                   <div>
                     <Label htmlFor="tax_id">NIF/CIF *</Label>
                     <Input
                       id="tax_id"
-                      {...register("tax_id")}
-                      onChange={(e) => handleTaxIdChange(e.target.value)}
-                      placeholder="12345678A o A12345678"
+                      value={formData.tax_id}
+                      onChange={(e) => handleChange("tax_id", e.target.value.toUpperCase())}
+                      placeholder="12345678A"
                       maxLength={9}
                     />
                     {taxIdValidation && (
@@ -348,94 +341,118 @@ export function CreateCustomerForm({ onSuccess, onCancel }: CreateCustomerFormPr
                         </p>
                       </div>
                     )}
-                    {errors.tax_id && <p className="text-sm text-red-600 mt-1">{errors.tax_id.message}</p>}
+                    {errors.tax_id && <p className="text-sm text-red-600 mt-1">{errors.tax_id}</p>}
                   </div>
-
                   <div>
                     <Label htmlFor="email">Email *</Label>
-                    <Input id="email" type="email" {...register("email")} placeholder="cliente@empresa.com" />
-                    {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>}
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleChange("email", e.target.value)}
+                      placeholder="cliente@empresa.com"
+                    />
+                    {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
                   </div>
-
                   <div>
                     <Label htmlFor="phone">Teléfono *</Label>
-                    <Input id="phone" {...register("phone")} placeholder="600 123 456" />
-                    {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone.message}</p>}
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => handleChange("phone", e.target.value)}
+                      placeholder="600 123 456"
+                    />
+                    {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
                   </div>
-
                   <div>
                     <Label htmlFor="contact_person">Persona de Contacto</Label>
                     <Input
                       id="contact_person"
-                      {...register("contact_person")}
-                      placeholder="Nombre del contacto principal"
+                      value={formData.contact_person}
+                      onChange={(e) => handleChange("contact_person", e.target.value)}
+                      placeholder="Nombre del contacto"
                     />
                   </div>
-
                   <div>
                     <Label htmlFor="website">Sitio Web</Label>
-                    <Input id="website" {...register("website")} placeholder="https://www.empresa.com" />
-                    {errors.website && <p className="text-sm text-red-600 mt-1">{errors.website.message}</p>}
+                    <Input
+                      id="website"
+                      value={formData.website}
+                      onChange={(e) => handleChange("website", e.target.value)}
+                      placeholder="https://www.empresa.com"
+                    />
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Address Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Building className="w-5 h-5" />
                     Dirección
                   </CardTitle>
-                  <CardDescription>Ubicación del cliente</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="address">Dirección</Label>
-                    <Input id="address" {...register("address")} placeholder="Calle, número, piso, puerta" />
+                    <Input
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) => handleChange("address", e.target.value)}
+                      placeholder="Calle, número, piso"
+                    />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="city">Ciudad</Label>
-                      <Input id="city" {...register("city")} placeholder="Madrid" />
+                      <Input
+                        id="city"
+                        value={formData.city}
+                        onChange={(e) => handleChange("city", e.target.value)}
+                        placeholder="Madrid"
+                      />
                     </div>
-
                     <div>
                       <Label htmlFor="postal_code">Código Postal</Label>
-                      <Input id="postal_code" {...register("postal_code")} placeholder="28001" maxLength={5} />
+                      <Input
+                        id="postal_code"
+                        value={formData.postal_code}
+                        onChange={(e) => handleChange("postal_code", e.target.value)}
+                        placeholder="28001"
+                        maxLength={5}
+                      />
                     </div>
                   </div>
-
                   <div>
                     <Label htmlFor="province">Provincia</Label>
-                    <Select onValueChange={(value) => setValue("province", value)}>
+                    <Select value={formData.province} onValueChange={(value) => handleChange("province", value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una provincia" />
+                        <SelectValue placeholder="Selecciona provincia" />
                       </SelectTrigger>
                       <SelectContent>
-                        {SPANISH_PROVINCES.map((province) => (
-                          <SelectItem key={province} value={province}>
-                            {province}
+                        {SPANISH_PROVINCES.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div>
                     <Label htmlFor="country">País</Label>
-                    <Input id="country" {...register("country")} placeholder="España" />
+                    <Input
+                      id="country"
+                      value={formData.country}
+                      onChange={(e) => handleChange("country", e.target.value)}
+                    />
                   </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* Business Tab */}
           <TabsContent value="business" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Business Information */}
               <Card>
                 <CardHeader>
                   <CardTitle>Información Comercial</CardTitle>
@@ -445,108 +462,101 @@ export function CreateCustomerForm({ onSuccess, onCancel }: CreateCustomerFormPr
                     <Label htmlFor="commercial_name">Nombre Comercial</Label>
                     <Input
                       id="commercial_name"
-                      {...register("commercial_name")}
-                      placeholder="Nombre comercial si es diferente"
+                      value={formData.commercial_name}
+                      onChange={(e) => handleChange("commercial_name", e.target.value)}
                     />
                   </div>
-
                   <div>
                     <Label htmlFor="sector">Sector</Label>
-                    <Select onValueChange={(value) => setValue("sector", value)}>
+                    <Select value={formData.sector} onValueChange={(value) => handleChange("sector", value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un sector" />
+                        <SelectValue placeholder="Selecciona sector" />
                       </SelectTrigger>
                       <SelectContent>
-                        {BUSINESS_SECTORS.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
-                            {sector}
+                        {BUSINESS_SECTORS.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-
+                  <div>
+                    <Label htmlFor="legal_form">Forma Jurídica</Label>
+                    <Select value={formData.legal_form} onValueChange={(value) => handleChange("legal_form", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona forma jurídica" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LEGAL_FORMS.map((l) => (
+                          <SelectItem key={l} value={l}>
+                            {l}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label htmlFor="business_activity">Actividad Empresarial</Label>
                     <Input
                       id="business_activity"
-                      {...register("business_activity")}
-                      placeholder="Descripción de la actividad"
+                      value={formData.business_activity}
+                      onChange={(e) => handleChange("business_activity", e.target.value)}
                     />
                   </div>
-
                   <div>
                     <Label htmlFor="cnae_code">Código CNAE</Label>
-                    <Input id="cnae_code" {...register("cnae_code")} placeholder="1234" />
+                    <Input
+                      id="cnae_code"
+                      value={formData.cnae_code}
+                      onChange={(e) => handleChange("cnae_code", e.target.value)}
+                    />
                   </div>
-
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Datos de Empresa</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="employees_count">Número de Empleados</Label>
                     <Input
                       id="employees_count"
                       type="number"
-                      {...register("employees_count", { valueAsNumber: true })}
-                      placeholder="10"
+                      value={formData.employees_count}
+                      onChange={(e) => handleChange("employees_count", e.target.value)}
                     />
                   </div>
-
                   <div>
                     <Label htmlFor="annual_revenue">Facturación Anual (€)</Label>
                     <Input
                       id="annual_revenue"
                       type="number"
-                      {...register("annual_revenue", { valueAsNumber: true })}
-                      placeholder="100000"
+                      value={formData.annual_revenue}
+                      onChange={(e) => handleChange("annual_revenue", e.target.value)}
                     />
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Customer Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Historial del Cliente</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="customer_since">Cliente Desde</Label>
-                    <Input id="customer_since" type="date" {...register("customer_since")} />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="last_order_date">Último Pedido</Label>
-                    <Input id="last_order_date" type="date" {...register("last_order_date")} />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="total_orders">Total de Pedidos</Label>
-                    <Input
-                      id="total_orders"
-                      type="number"
-                      {...register("total_orders", { valueAsNumber: true })}
-                      placeholder="0"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="average_order_value">Valor Medio Pedido (€)</Label>
-                    <Input
-                      id="average_order_value"
-                      type="number"
-                      step="0.01"
-                      {...register("average_order_value", { valueAsNumber: true })}
-                      placeholder="0.00"
-                    />
+                    <Label htmlFor="status">Estado</Label>
+                    <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Activo</SelectItem>
+                        <SelectItem value="inactive">Inactivo</SelectItem>
+                        <SelectItem value="prospect">Prospecto</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* Financial Tab */}
           <TabsContent value="financial" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Payment Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -560,65 +570,73 @@ export function CreateCustomerForm({ onSuccess, onCancel }: CreateCustomerFormPr
                     <Input
                       id="credit_limit"
                       type="number"
-                      step="0.01"
-                      {...register("credit_limit", { valueAsNumber: true })}
-                      placeholder="5000.00"
+                      value={formData.credit_limit}
+                      onChange={(e) => handleChange("credit_limit", e.target.value)}
                     />
                   </div>
-
                   <div>
                     <Label htmlFor="payment_terms">Plazo de Pago (días)</Label>
                     <Input
                       id="payment_terms"
                       type="number"
-                      {...register("payment_terms", { valueAsNumber: true })}
-                      placeholder="30"
+                      value={formData.payment_terms}
+                      onChange={(e) => handleChange("payment_terms", e.target.value)}
                     />
                   </div>
-
                   <div>
-                    <Label htmlFor="preferred_payment_method">Método de Pago Preferido</Label>
-                    <Select onValueChange={(value) => setValue("preferred_payment_method", value)}>
+                    <Label htmlFor="preferred_payment_method">Método de Pago</Label>
+                    <Select
+                      value={formData.preferred_payment_method}
+                      onValueChange={(value) => handleChange("preferred_payment_method", value)}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un método" />
+                        <SelectValue placeholder="Selecciona método" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PAYMENT_METHODS.map((method) => (
-                          <SelectItem key={method} value={method}>
-                            {method}
+                        {PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {m}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div>
                     <Label htmlFor="bank_account">Cuenta Bancaria (IBAN)</Label>
                     <Input
                       id="bank_account"
-                      {...register("bank_account")}
-                      placeholder="ES12 1234 5678 9012 3456 7890"
+                      value={formData.bank_account}
+                      onChange={(e) => handleChange("bank_account", e.target.value)}
+                      placeholder="ES12 1234 5678 90 1234567890"
                     />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="swift_code">Código SWIFT</Label>
-                    <Input id="swift_code" {...register("swift_code")} placeholder="BBVAESMM" />
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Risk and Tax */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Riesgo y Fiscal</CardTitle>
+                  <CardTitle>Información Fiscal</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="risk_level">Nivel de Riesgo</Label>
-                    <Select onValueChange={(value) => setValue("risk_level", value as "low" | "medium" | "high")}>
+                    <Label htmlFor="tax_regime">Régimen Fiscal</Label>
+                    <Select value={formData.tax_regime} onValueChange={(value) => handleChange("tax_regime", value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona el nivel" />
+                        <SelectValue placeholder="Selecciona régimen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TAX_REGIMES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="risk_level">Nivel de Riesgo</Label>
+                    <Select value={formData.risk_level} onValueChange={(value) => handleChange("risk_level", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="low">Bajo</SelectItem>
@@ -627,159 +645,46 @@ export function CreateCustomerForm({ onSuccess, onCancel }: CreateCustomerFormPr
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <div>
-                    <Label htmlFor="tax_regime">Régimen Fiscal</Label>
-                    <Select onValueChange={(value) => setValue("tax_regime", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona el régimen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TAX_REGIMES.map((regime) => (
-                          <SelectItem key={regime} value={regime}>
-                            {regime}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="vat_number">Número IVA</Label>
-                    <Input id="vat_number" {...register("vat_number")} placeholder="ESA12345678" />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="social_security_number">Número Seguridad Social</Label>
-                    <Input
-                      id="social_security_number"
-                      {...register("social_security_number")}
-                      placeholder="123456789012"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="mutual_insurance">Mutua de Seguros</Label>
-                    <Input id="mutual_insurance" {...register("mutual_insurance")} placeholder="Nombre de la mutua" />
-                  </div>
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* Legal Tab */}
-          <TabsContent value="legal" className="space-y-4">
+          <TabsContent value="notes">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="w-5 h-5" />
-                  Información Legal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="legal_form">Forma Jurídica</Label>
-                      <Select onValueChange={(value) => setValue("legal_form", value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona la forma jurídica" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {LEGAL_FORMS.map((form) => (
-                            <SelectItem key={form} value={form}>
-                              {form}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="registration_number">Número de Registro</Label>
-                      <Input
-                        id="registration_number"
-                        {...register("registration_number")}
-                        placeholder="Número de registro mercantil"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="registration_date">Fecha de Constitución</Label>
-                      <Input id="registration_date" type="date" {...register("registration_date")} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="share_capital">Capital Social (€)</Label>
-                      <Input
-                        id="share_capital"
-                        type="number"
-                        step="0.01"
-                        {...register("share_capital", { valueAsNumber: true })}
-                        placeholder="3000.00"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="administrator">Administrador</Label>
-                      <Input id="administrator" {...register("administrator")} placeholder="Nombre del administrador" />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="administrator_nif">NIF del Administrador</Label>
-                      <Input
-                        id="administrator_nif"
-                        {...register("administrator_nif")}
-                        placeholder="12345678A"
-                        maxLength={9}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Notes Tab */}
-          <TabsContent value="notes" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
                   Notas y Observaciones
                 </CardTitle>
-                <CardDescription>Información adicional sobre el cliente</CardDescription>
               </CardHeader>
               <CardContent>
-                <div>
-                  <Label htmlFor="notes">Notas</Label>
-                  <Textarea
-                    id="notes"
-                    {...register("notes")}
-                    placeholder="Información adicional, observaciones, historial de contactos, etc."
-                    rows={8}
-                  />
-                </div>
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) => handleChange("notes", e.target.value)}
+                  placeholder="Notas adicionales..."
+                  rows={6}
+                />
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
 
-        {/* Form Actions */}
-        <div className="flex items-center justify-end gap-4 pt-6 border-t">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+        <div className="flex justify-end gap-4">
+          <Button type="button" variant="outline" onClick={handleBack}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} className="gap-2">
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creando cliente...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Guardando...
               </>
             ) : (
-              "Crear Cliente"
+              <>
+                <Save className="w-4 h-4" />
+                {editingCustomer ? "Actualizar" : "Crear"} Cliente
+              </>
             )}
           </Button>
         </div>
