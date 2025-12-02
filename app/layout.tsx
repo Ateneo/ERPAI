@@ -7,9 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { SettingsProvider } from "@/contexts/settings-context"
 import type React from "react"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
-// Actualizar los metadatos
 export const metadata = {
   title: "Panel de Control Sib Naranja Sib Cristal",
   description: "panel de control",
@@ -22,17 +21,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="es" suppressHydrationWarning className={inter.variable}>
+      <body className={`${inter.className} bg-background antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SettingsProvider>
             <TooltipProvider delayDuration={0}>
               <div className="min-h-screen flex">
                 <Sidebar />
-                <div className="flex-1">
+                <div className="flex-1 flex flex-col">
                   <TopNav />
-                  <div className="container mx-auto p-6 max-w-7xl">
-                    <main className="w-full">{children}</main>
+                  <div className="flex-1 p-6">
+                    <main className="container mx-auto max-w-7xl">{children}</main>
                   </div>
                 </div>
               </div>

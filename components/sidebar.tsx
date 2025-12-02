@@ -20,16 +20,16 @@ import {
   Menu,
   ChevronLeft,
   Users,
+  FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
 
-// Actualizar la navegación principal con la opción de clientes
 const navigation = [
   { name: "Panel Principal", href: "/", icon: Home },
   { name: "Analíticas", href: "/analytics", icon: BarChart2 },
-  { name: "Clientes", href: "/customers", icon: Users }, // Nueva opción
+  { name: "Clientes", href: "/customers", icon: Users },
+  { name: "Preventas", href: "/preventas", icon: FileText },
   { name: "Organización", href: "/organization", icon: Building2 },
   { name: "Proyectos", href: "/projects", icon: Folder },
   { name: "Transacciones", href: "/transactions", icon: Wallet },
@@ -51,16 +51,14 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
-  const NavItem = ({ item, isBottom = false }) => (
+  const NavItem = ({ item, isBottom = false }: { item: (typeof navigation)[0]; isBottom?: boolean }) => (
     <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>
         <Link
           href={item.href}
           className={cn(
-            "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            pathname === item.href
-              ? "bg-secondary text-secondary-foreground"
-              : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground",
+            "flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300",
+            pathname === item.href ? "neu-pressed text-primary" : "text-muted-foreground hover:text-foreground",
             isCollapsed && "justify-center px-2",
           )}
         >
@@ -69,7 +67,7 @@ export function Sidebar() {
         </Link>
       </TooltipTrigger>
       {isCollapsed && (
-        <TooltipContent side="right" className="flex items-center gap-4">
+        <TooltipContent side="right" className="neu-flat">
           {item.name}
         </TooltipContent>
       )}
@@ -80,46 +78,53 @@ export function Sidebar() {
     <TooltipProvider>
       <>
         <button
-          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-background rounded-md shadow-md"
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 neu-convex rounded-xl"
           onClick={() => setIsMobileOpen(!isMobileOpen)}
           aria-label="Alternar barra lateral"
         >
           <Menu className="h-6 w-6" />
         </button>
+
         <div
           className={cn(
-            "fixed inset-y-0 z-20 flex flex-col bg-background transition-all duration-300 ease-in-out lg:static",
+            "fixed inset-y-0 z-20 flex flex-col transition-all duration-300 ease-in-out lg:static",
+            "bg-background neu-sidebar",
             isCollapsed ? "w-[72px]" : "w-72",
             isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           )}
         >
-          <div className="border-b border-border">
+          {/* Header */}
+          <div className="border-b border-border/20">
             <div className={cn("flex h-16 items-center gap-2 px-4", isCollapsed && "justify-center px-2")}>
               {!isCollapsed && (
                 <Link href="/" className="flex items-center font-semibold">
-                  <span className="text-lg">Sib Naranja Sib Cristal (Beta) v.08</span>
+                  <span className="text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    Sib Naranja v.08
+                  </span>
                 </Link>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn("ml-auto h-8 w-8", isCollapsed && "ml-0")}
+              <button
+                className={cn("ml-auto h-8 w-8 neu-icon-sm", isCollapsed && "ml-0")}
                 onClick={() => setIsCollapsed(!isCollapsed)}
               >
                 <ChevronLeft className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")} />
                 <span className="sr-only">{isCollapsed ? "Expandir" : "Contraer"} Barra lateral</span>
-              </Button>
+              </button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto">
-            <nav className="flex-1 space-y-1 px-2 py-4">
+
+          {/* Navigation */}
+          <div className="flex-1 overflow-auto neu-scrollbar">
+            <nav className="flex-1 space-y-2 px-3 py-4">
               {navigation.map((item) => (
                 <NavItem key={item.name} item={item} />
               ))}
             </nav>
           </div>
-          <div className="border-t border-border p-2">
-            <nav className="space-y-1">
+
+          {/* Bottom Navigation */}
+          <div className="border-t border-border/20 p-3">
+            <nav className="space-y-2">
               {bottomNavigation.map((item) => (
                 <NavItem key={item.name} item={item} isBottom />
               ))}

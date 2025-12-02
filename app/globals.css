@@ -4,69 +4,81 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
+    /* Modo Día - Neumorphism Light */
+    --background: 220 20% 94%;
+    --foreground: 222 47% 11%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 15% 88%;
+    --muted-foreground: 220 10% 40%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
+    --popover: 220 20% 94%;
+    --popover-foreground: 222 47% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    --card: 220 20% 94%;
+    --card-foreground: 222 47% 11%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 220 15% 85%;
+    --input: 220 20% 94%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 220 70% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 15% 88%;
+    --secondary-foreground: 222 47% 11%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 220 70% 50%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 100% 50%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --ring: 215 20.2% 65.1%;
+    --ring: 220 70% 50%;
+    --radius: 1rem;
 
-    --radius: 0.5rem;
+    /* Sombras neumórficas para modo día */
+    --neu-shadow-light: rgba(255, 255, 255, 0.8);
+    --neu-shadow-dark: rgba(163, 177, 198, 0.6);
+    --neu-inset-light: rgba(255, 255, 255, 0.5);
+    --neu-inset-dark: rgba(163, 177, 198, 0.5);
   }
 
   .dark {
-    --background: 224 71% 4%;
+    /* Modo Noche - Neumorphism Dark */
+    --background: 222 47% 11%;
     --foreground: 213 31% 91%;
 
-    --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 223 47% 16%;
+    --muted-foreground: 215 16% 57%;
 
-    --popover: 224 71% 4%;
-    --popover-foreground: 215 20.2% 65.1%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 213 31% 91%;
 
-    --card: 224 71% 4%;
+    --card: 222 47% 11%;
     --card-foreground: 213 31% 91%;
 
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
+    --border: 216 34% 20%;
+    --input: 222 47% 11%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 1.2%;
+    --primary: 210 100% 60%;
+    --primary-foreground: 222 47% 11%;
 
-    --secondary: 222.2 47.4% 11.2%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 223 47% 16%;
+    --secondary-foreground: 213 31% 91%;
 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 210 100% 60%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --ring: 216 34% 17%;
+    --ring: 210 100% 60%;
+    --radius: 1rem;
 
-    --radius: 0.5rem;
+    /* Sombras neumórficas para modo noche */
+    --neu-shadow-light: rgba(48, 58, 80, 0.5);
+    --neu-shadow-dark: rgba(10, 15, 25, 0.7);
+    --neu-inset-light: rgba(48, 58, 80, 0.3);
+    --neu-inset-dark: rgba(10, 15, 25, 0.5);
   }
 }
 
@@ -77,5 +89,240 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Estilos neumórficos base */
+  .neu-flat {
+    background: hsl(var(--background));
+    box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
+    border-radius: var(--radius);
+    transition: all 0.3s ease;
+  }
+
+  .neu-flat:hover {
+    box-shadow: 10px 10px 20px var(--neu-shadow-dark), -10px -10px 20px var(--neu-shadow-light);
+  }
+
+  .neu-pressed {
+    background: hsl(var(--background));
+    box-shadow: inset 4px 4px 8px var(--neu-inset-dark), inset -4px -4px 8px var(--neu-inset-light);
+    border-radius: var(--radius);
+  }
+
+  .neu-convex {
+    background: linear-gradient(145deg, hsl(var(--background) / 1.1), hsl(var(--background) / 0.9));
+    box-shadow: 6px 6px 12px var(--neu-shadow-dark), -6px -6px 12px var(--neu-shadow-light);
+    border-radius: var(--radius);
+    transition: all 0.3s ease;
+  }
+
+  .neu-convex:hover {
+    box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
+  }
+
+  .neu-convex:active {
+    box-shadow: inset 4px 4px 8px var(--neu-inset-dark), inset -4px -4px 8px var(--neu-inset-light);
+  }
+
+  .neu-concave {
+    background: linear-gradient(145deg, hsl(var(--background) / 0.9), hsl(var(--background) / 1.1));
+    box-shadow: inset 3px 3px 6px var(--neu-inset-dark), inset -3px -3px 6px var(--neu-inset-light);
+    border-radius: var(--radius);
+  }
+
+  /* Card neumórfica */
+  .neu-card {
+    @apply neu-flat p-6;
+    border: 1px solid hsl(var(--border) / 0.3);
+  }
+
+  /* Botón neumórfico */
+  .neu-button {
+    @apply neu-convex px-6 py-3 font-medium;
+    border: none;
+    cursor: pointer;
+  }
+
+  .neu-button:active {
+    @apply neu-pressed;
+  }
+
+  .neu-button-primary {
+    @apply neu-button;
+    background: linear-gradient(145deg, hsl(var(--primary) / 1.1), hsl(var(--primary) / 0.9));
+    color: hsl(var(--primary-foreground));
+  }
+
+  /* Input neumórfico */
+  .neu-input {
+    @apply neu-concave px-4 py-3 w-full;
+    border: none;
+    outline: none;
+    background: hsl(var(--background));
+  }
+
+  .neu-input:focus {
+    box-shadow: inset 4px 4px 8px var(--neu-inset-dark), inset -4px -4px 8px var(--neu-inset-light), 0 0 0 2px
+      hsl(var(--primary) / 0.3);
+  }
+
+  /* Badge neumórfico */
+  .neu-badge {
+    @apply neu-flat px-3 py-1 text-sm font-medium;
+    box-shadow: 3px 3px 6px var(--neu-shadow-dark), -3px -3px 6px var(--neu-shadow-light);
+  }
+
+  /* Sidebar neumórfico */
+  .neu-sidebar {
+    @apply neu-flat;
+    box-shadow: 4px 0 12px var(--neu-shadow-dark);
+    border-right: 1px solid hsl(var(--border) / 0.2);
+  }
+
+  /* Topbar neumórfico */
+  .neu-topbar {
+    @apply neu-flat;
+    box-shadow: 0 4px 12px var(--neu-shadow-dark);
+    border-bottom: 1px solid hsl(var(--border) / 0.2);
+  }
+
+  /* Toggle neumórfico */
+  .neu-toggle {
+    @apply neu-concave;
+    width: 60px;
+    height: 32px;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .neu-toggle-thumb {
+    @apply neu-convex absolute top-1 left-1;
+    width: 24px;
+    height: 24px;
+    transition: transform 0.3s ease;
+  }
+
+  .neu-toggle.active .neu-toggle-thumb {
+    transform: translateX(28px);
+    background: linear-gradient(145deg, hsl(var(--primary) / 1.1), hsl(var(--primary) / 0.9));
+  }
+
+  /* Estadísticas neumórficas */
+  .neu-stat {
+    @apply neu-flat p-4;
+  }
+
+  .neu-stat-value {
+    @apply text-3xl font-bold;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Tabla neumórfica */
+  .neu-table {
+    @apply neu-flat overflow-hidden;
+  }
+
+  .neu-table-header {
+    background: hsl(var(--muted));
+    box-shadow: inset 0 -2px 4px var(--neu-inset-dark);
+  }
+
+  .neu-table-row {
+    border-bottom: 1px solid hsl(var(--border) / 0.2);
+    transition: background 0.2s ease;
+  }
+
+  .neu-table-row:hover {
+    background: hsl(var(--muted) / 0.5);
+  }
+
+  /* Iconos con efecto neumórfico */
+  .neu-icon {
+    @apply neu-convex p-2 rounded-full;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .neu-icon-sm {
+    @apply neu-icon;
+    padding: 0.375rem;
+    box-shadow: 2px 2px 4px var(--neu-shadow-dark), -2px -2px 4px var(--neu-shadow-light);
+  }
+
+  /* Progreso neumórfico */
+  .neu-progress {
+    @apply neu-concave h-3 overflow-hidden;
+  }
+
+  .neu-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+    border-radius: inherit;
+    transition: width 0.5s ease;
+  }
+
+  /* Avatar neumórfico */
+  .neu-avatar {
+    @apply neu-convex rounded-full overflow-hidden;
+    box-shadow: 4px 4px 8px var(--neu-shadow-dark), -4px -4px 8px var(--neu-shadow-light);
+  }
+
+  /* Tabs neumórficos */
+  .neu-tabs {
+    @apply neu-concave p-1 flex gap-1;
+  }
+
+  .neu-tab {
+    @apply px-4 py-2 rounded-lg transition-all;
+    background: transparent;
+  }
+
+  .neu-tab.active {
+    @apply neu-convex;
+    background: hsl(var(--background));
+  }
+
+  /* Modal/Dialog neumórfico */
+  .neu-modal {
+    @apply neu-flat p-6;
+    box-shadow: 20px 20px 40px var(--neu-shadow-dark), -20px -20px 40px var(--neu-shadow-light);
+  }
+
+  /* Dropdown neumórfico */
+  .neu-dropdown {
+    @apply neu-flat py-2;
+    box-shadow: 8px 8px 16px var(--neu-shadow-dark), -8px -8px 16px var(--neu-shadow-light);
+  }
+
+  /* Skeleton neumórfico */
+  .neu-skeleton {
+    @apply neu-concave animate-pulse;
+  }
+
+  /* Scrollbar neumórfico */
+  .neu-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .neu-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+    box-shadow: inset 2px 2px 4px var(--neu-inset-dark), inset -2px -2px 4px var(--neu-inset-light);
+    border-radius: 4px;
+  }
+
+  .neu-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+    box-shadow: 2px 2px 4px var(--neu-shadow-dark), -2px -2px 4px var(--neu-shadow-light);
+  }
+
+  .neu-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
   }
 }

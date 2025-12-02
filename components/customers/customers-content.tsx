@@ -1,14 +1,42 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createBrowserClient } from "@supabase/ssr"
 import { CustomersList } from "./customers-list"
 import { CreateCustomerForm } from "./create-customer-form"
 import { CustomerDetails } from "./customer-details"
-import { type Customer, type CustomerStats, SupabaseCustomerService } from "@/lib/supabase-customers"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, AlertCircle, ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+
+interface Customer {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  tax_id?: string
+  sector?: string
+  address?: string
+  city?: string
+  province?: string
+  postal_code?: string
+  country?: string
+  status?: string
+  verifactu_status?: string
+  verifactu_synced_at?: string
+  created_at: string
+  updated_at?: string
+}
+
+interface CustomerStats {
+  total: number
+  thisMonth: number
+  lastMonth: number
+  growth: number
+  byStatus: { pending: number; synced: number; error: number; simulated: number }
+  bySector: Array<{ sector: string; count: number }>
+}
 
 type ViewMode = "list" | "create" | "details" | "edit"
 
@@ -28,7 +56,11 @@ export function CustomersContent() {
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // Cargar datos iniciales
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+
   useEffect(() => {
     loadCustomers()
   }, [])
@@ -38,44 +70,59 @@ export function CustomersContent() {
       setIsLoading(true)
       setError(null)
 
-      console.log("[v0] [CustomersContent] Iniciando carga de clientes...")
-      console.log("[v0] Variables de entorno disponibles:")
-      console.log("[v0] - NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "✓" : "✗")
-      console.log("[v0] - NEXT_PUBLIC_SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "✓" : "✗")
+      // Consulta directa a Supabase
+      const { data, error: fetchError } = await supabase
+        .from("customers")
+        .select("*")
+        .order("created_at", { ascending: false })
 
-      console.log("[CustomersContent] Cargando clientes...")
-
-      // Cargar clientes y estadísticas en paralelo
-      const [customersResult, statsResult] = await Promise.all([
-        SupabaseCustomerService.getAll(),
-        SupabaseCustomerService.getStats(),
-      ])
-
-      console.log("[v0] Resultado de getAll:", customersResult)
-      console.log("[v0] Resultado de getStats:", statsResult)
-
-      if (customersResult.success && customersResult.data) {
-        setCustomers(customersResult.data)
-        console.log(`[CustomersContent] ${customersResult.data.length} clientes cargados`)
-      } else {
-        throw new Error(customersResult.error || "Error cargando clientes")
+      if (fetchError) {
+        console.error("[v0] Error Supabase:", fetchError)
+        throw new Error(fetchError.message)
       }
 
-      if (statsResult.success && statsResult.data) {
-        setStats(statsResult.data)
-        console.log("[CustomersContent] Estadísticas cargadas:", statsResult.data)
-      } else {
-        console.warn("[CustomersContent] Error cargando estadísticas:", statsResult.error)
-        // Las estadísticas son opcionales, no fallar por esto
+      const customerData = data || []
+      setCustomers(customerData)
+      console.log("[v0] Clientes cargados:", customerData.length)
+
+      // Calcular estadísticas localmente
+      const now = new Date()
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+
+      const thisMonthCount = customerData.filter((c) => new Date(c.created_at) >= thisMonth).length
+      const lastMonthCount = customerData.filter((c) => {
+        const d = new Date(c.created_at)
+        return d >= lastMonth && d < thisMonth
+      }).length
+
+      const byStatus = {
+        pending: customerData.filter((c) => !c.verifactu_status || c.verifactu_status === "pending").length,
+        synced: customerData.filter((c) => c.verifactu_status === "synced").length,
+        error: customerData.filter((c) => c.verifactu_status === "error").length,
+        simulated: customerData.filter((c) => c.verifactu_status === "simulated").length,
       }
-    } catch (error) {
-      console.error("[CustomersContent] Error cargando datos:", error)
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
-      console.log("[v0] Error detallado:", errorMessage)
-      setError(`Error cargando datos: ${errorMessage}`)
+
+      const sectorCounts: Record<string, number> = {}
+      customerData.forEach((c) => {
+        const sector = c.sector || "Sin sector"
+        sectorCounts[sector] = (sectorCounts[sector] || 0) + 1
+      })
+
+      setStats({
+        total: customerData.length,
+        thisMonth: thisMonthCount,
+        lastMonth: lastMonthCount,
+        growth: lastMonthCount > 0 ? ((thisMonthCount - lastMonthCount) / lastMonthCount) * 100 : 0,
+        byStatus,
+        bySector: Object.entries(sectorCounts).map(([sector, count]) => ({ sector, count })),
+      })
+    } catch (err) {
+      console.error("[v0] Error cargando clientes:", err)
+      setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "Error",
-        description: "No se pudieron cargar los clientes. Inténtalo de nuevo.",
+        description: "No se pudieron cargar los clientes. Verifica la conexión a Supabase.",
         variant: "destructive",
       })
     } finally {
@@ -89,64 +136,38 @@ export function CustomersContent() {
   }
 
   const handleViewCustomer = (customer: Customer) => {
-    console.log("[CustomersContent] Viendo detalles del cliente:", customer.name)
     setSelectedCustomer(customer)
     setViewMode("details")
   }
 
   const handleEditCustomer = (customer: Customer) => {
-    console.log("[CustomersContent] Editando cliente:", customer.name)
     setSelectedCustomer(customer)
     setViewMode("edit")
   }
 
   const handleDeleteCustomer = async (customer: Customer) => {
-    if (
-      !confirm(`¿Estás seguro de que quieres eliminar el cliente "${customer.name}"? Esta acción no se puede deshacer.`)
-    ) {
-      return
-    }
+    if (!confirm(`¿Eliminar el cliente "${customer.name}"?`)) return
 
     try {
-      console.log("[CustomersContent] Eliminando cliente:", customer.id)
+      const { error: deleteError } = await supabase.from("customers").delete().eq("id", customer.id)
 
-      const result = await SupabaseCustomerService.delete(customer.id)
+      if (deleteError) throw deleteError
 
-      if (result.success) {
-        toast({
-          title: "Cliente eliminado",
-          description: `${customer.name} ha sido eliminado exitosamente.`,
-        })
-
-        // Recargar la lista
-        await loadCustomers()
-      } else {
-        throw new Error(result.error || "Error eliminando cliente")
-      }
-    } catch (error) {
-      console.error("[CustomersContent] Error eliminando cliente:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar el cliente. Inténtalo de nuevo.",
-        variant: "destructive",
-      })
+      toast({ title: "Cliente eliminado", description: `${customer.name} ha sido eliminado.` })
+      await loadCustomers()
+    } catch (err) {
+      console.error("[v0] Error eliminando:", err)
+      toast({ title: "Error", description: "No se pudo eliminar el cliente.", variant: "destructive" })
     }
   }
 
   const handleSyncCustomer = async (customer: Customer) => {
     try {
-      console.log("[CustomersContent] Sincronizando cliente:", customer.id)
-
-      toast({
-        title: "Sincronizando...",
-        description: `Sincronizando ${customer.name} con Verifactu...`,
-      })
+      toast({ title: "Sincronizando...", description: `Sincronizando ${customer.name}...` })
 
       const response = await fetch("/api/customers/sync", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customerId: customer.id }),
       })
 
@@ -155,55 +176,33 @@ export function CustomersContent() {
       if (result.success) {
         toast({
           title: "Sincronización exitosa",
-          description: result.simulated
-            ? `${customer.name} sincronizado en modo simulación.`
-            : `${customer.name} sincronizado con Verifactu.`,
+          description: result.simulated ? "Sincronizado en modo simulación." : "Sincronizado con Verifactu.",
         })
-
-        // Recargar la lista para mostrar el estado actualizado
         await loadCustomers()
-
-        // Si estamos viendo los detalles del cliente, actualizar el cliente seleccionado
-        if (selectedCustomer && selectedCustomer.id === customer.id) {
-          const updatedCustomerResult = await SupabaseCustomerService.getById(customer.id)
-          if (updatedCustomerResult.success && updatedCustomerResult.data) {
-            setSelectedCustomer(updatedCustomerResult.data)
-          }
-        }
       } else {
         throw new Error(result.error || "Error en la sincronización")
       }
-    } catch (error) {
-      console.error("[CustomersContent] Error sincronizando cliente:", error)
-      toast({
-        title: "Error de sincronización",
-        description: "No se pudo sincronizar el cliente con Verifactu.",
-        variant: "destructive",
-      })
+    } catch (err) {
+      console.error("[v0] Error sincronizando:", err)
+      toast({ title: "Error", description: "No se pudo sincronizar.", variant: "destructive" })
     }
   }
 
-  const handleCustomerSaved = async (customer: Customer) => {
-    console.log("[CustomersContent] Cliente guardado:", customer.id)
-
+  const handleCustomerSaved = async () => {
     toast({
       title: viewMode === "create" ? "Cliente creado" : "Cliente actualizado",
-      description: `${customer.name} ha sido ${viewMode === "create" ? "creado" : "actualizado"} exitosamente.`,
+      description: "Los cambios se han guardado correctamente.",
     })
-
-    // Recargar la lista y volver a la vista principal
     await loadCustomers()
     setViewMode("list")
     setSelectedCustomer(null)
   }
 
   const handleBackToList = () => {
-    console.log("[CustomersContent] Volviendo a la lista")
     setSelectedCustomer(null)
     setViewMode("list")
   }
 
-  // Renderizar contenido según el modo de vista
   const renderContent = () => {
     if (error && viewMode === "list") {
       return (
@@ -230,14 +229,14 @@ export function CustomersContent() {
             <div className="flex items-center gap-4">
               <Button variant="ghost" onClick={handleBackToList}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver a la lista
+                Volver
               </Button>
               <h2 className="text-2xl font-bold">
                 {viewMode === "create" ? "Crear Cliente" : `Editar ${selectedCustomer?.name}`}
               </h2>
             </div>
             <CreateCustomerForm
-              customer={selectedCustomer}
+              customer={selectedCustomer as any}
               onSave={handleCustomerSaved}
               onCancel={handleBackToList}
               isEditing={viewMode === "edit"}
@@ -251,18 +250,16 @@ export function CustomersContent() {
             <div className="text-center py-8">
               <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">Cliente no encontrado</h3>
-              <p className="text-muted-foreground mb-4">El cliente seleccionado no está disponible.</p>
               <Button onClick={handleBackToList}>Volver a la lista</Button>
             </div>
           )
         }
-
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-4">
               <Button variant="ghost" onClick={handleBackToList}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Volver a la lista
+                Volver
               </Button>
               <h2 className="text-2xl font-bold">Detalles de {selectedCustomer.name}</h2>
             </div>
@@ -273,13 +270,13 @@ export function CustomersContent() {
       default:
         return (
           <CustomersList
-            customers={customers}
-            stats={stats}
+            customers={customers as any}
+            stats={stats as any}
             onCreateCustomer={handleCreateCustomer}
-            onViewCustomer={handleViewCustomer}
-            onEditCustomer={handleEditCustomer}
-            onDeleteCustomer={handleDeleteCustomer}
-            onSyncCustomer={handleSyncCustomer}
+            onViewCustomer={handleViewCustomer as any}
+            onEditCustomer={handleEditCustomer as any}
+            onDeleteCustomer={handleDeleteCustomer as any}
+            onSyncCustomer={handleSyncCustomer as any}
             isLoading={isLoading}
           />
         )

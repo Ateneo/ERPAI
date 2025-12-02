@@ -1,16 +1,4 @@
-// Korefactu API Integration
-// This file handles the integration with Korefactu platform for Verifactu system
-
-// Configuration
-export function getVerifactuConfiguration() {
-  return {
-    apiKey: process.env.API_KOREFACTU || "",
-    apiUrl: process.env.URL_KOREFACTU || "https://api.korefactu.com",
-    isSimulated: !process.env.API_KOREFACTU,
-  }
-}
-
-// Spanish Provinces
+// Constantes de provincias españolas
 export const SPANISH_PROVINCES = [
   "Álava",
   "Albacete",
@@ -28,7 +16,7 @@ export const SPANISH_PROVINCES = [
   "Ciudad Real",
   "Córdoba",
   "Cuenca",
-  "Gerona",
+  "Girona",
   "Granada",
   "Guadalajara",
   "Guipúzcoa",
@@ -40,13 +28,13 @@ export const SPANISH_PROVINCES = [
   "La Rioja",
   "Las Palmas",
   "León",
-  "Lérida",
+  "Lleida",
   "Lugo",
   "Madrid",
   "Málaga",
   "Murcia",
   "Navarra",
-  "Orense",
+  "Ourense",
   "Palencia",
   "Pontevedra",
   "Salamanca",
@@ -62,484 +50,320 @@ export const SPANISH_PROVINCES = [
   "Vizcaya",
   "Zamora",
   "Zaragoza",
+  "Ceuta",
+  "Melilla",
 ]
 
-// Business Sectors
 export const BUSINESS_SECTORS = [
-  "Agricultura y ganadería",
-  "Alimentación y bebidas",
-  "Automoción",
-  "Comercio al por mayor",
-  "Comercio al por menor",
+  "Tecnología",
   "Construcción",
-  "Consultoría",
+  "Comercio",
+  "Servicios",
+  "Industria",
+  "Agricultura",
+  "Turismo",
+  "Transporte",
   "Educación",
-  "Energía",
-  "Hostelería y turismo",
-  "Industria manufacturera",
+  "Sanidad",
+  "Finanzas",
   "Inmobiliario",
-  "Logística y transporte",
-  "Marketing y publicidad",
-  "Salud y servicios sociales",
-  "Servicios financieros",
-  "Servicios profesionales",
-  "Tecnología e informática",
+  "Alimentación",
+  "Textil",
+  "Automoción",
+  "Energía",
   "Telecomunicaciones",
+  "Consultoría",
+  "Marketing",
+  "Diseño",
+  "Legal",
+  "Seguros",
+  "Logística",
+  "Hostelería",
+  "Entretenimiento",
+  "Farmacéutica",
+  "Química",
+  "Metalurgia",
+  "Papelería",
+  "Plásticos",
+  "Maquinaria",
+  "Electrónica",
+  "Medio Ambiente",
   "Otros",
 ]
 
-// Validate Spanish Tax ID (NIF/CIF/NIE)
+export const LEGAL_FORMS = [
+  "Sociedad Limitada (SL)",
+  "Sociedad Anónima (SA)",
+  "Autónomo",
+  "Comunidad de Bienes",
+  "Sociedad Civil",
+  "Cooperativa",
+  "Sociedad Laboral",
+  "Fundación",
+  "Asociación",
+  "Otros",
+]
+
+export const PAYMENT_METHODS = [
+  "Transferencia bancaria",
+  "Domiciliación bancaria",
+  "Tarjeta de crédito",
+  "Cheque",
+  "Efectivo",
+  "Pagaré",
+  "Confirming",
+  "Factoring",
+  "Otros",
+]
+
+export const TAX_REGIMES = [
+  "Régimen General",
+  "Régimen Simplificado",
+  "Recargo de Equivalencia",
+  "Exento",
+  "Régimen Especial",
+  "REBU",
+  "Otros",
+]
+
+function validateNIF(nif: string): boolean {
+  const nifRegex = /^[0-9]{8}[A-Z]$/
+  if (!nifRegex.test(nif)) return false
+  const letters = "TRWAGMYFPDXBNJZSQVHLCKE"
+  const number = Number.parseInt(nif.substring(0, 8), 10)
+  return letters.charAt(number % 23) === nif.charAt(8)
+}
+
+function validateNIE(nie: string): boolean {
+  const nieRegex = /^[XYZ][0-9]{7}[A-Z]$/
+  if (!nieRegex.test(nie)) return false
+  const letters = "TRWAGMYFPDXBNJZSQVHLCKE"
+  let number = nie.substring(1, 8)
+  switch (nie.charAt(0)) {
+    case "X":
+      number = "0" + number
+      break
+    case "Y":
+      number = "1" + number
+      break
+    case "Z":
+      number = "2" + number
+      break
+  }
+  return letters.charAt(Number.parseInt(number, 10) % 23) === nie.charAt(8)
+}
+
+function validateCIF(cif: string): boolean {
+  const cifRegex = /^[ABCDEFGHJKLMNPQRSUVW][0-9]{7}[0-9A-J]$/
+  if (!cifRegex.test(cif)) return false
+  const controlLetters = "JABCDEFGHI"
+  const centralDigits = cif.substring(1, 8)
+  let sumA = 0,
+    sumB = 0
+  for (let i = 0; i < 7; i++) {
+    const digit = Number.parseInt(centralDigits.charAt(i), 10)
+    if (i % 2 === 0) {
+      const doubled = digit * 2
+      sumB += doubled > 9 ? doubled - 9 : doubled
+    } else {
+      sumA += digit
+    }
+  }
+  const controlDigit = (10 - ((sumA + sumB) % 10)) % 10
+  const control = cif.charAt(8)
+  const letterTypes = "KPQRSNW"
+  if (letterTypes.includes(cif.charAt(0))) return control === controlLetters.charAt(controlDigit)
+  const numberTypes = "ABEH"
+  if (numberTypes.includes(cif.charAt(0))) return control === controlDigit.toString()
+  return control === controlDigit.toString() || control === controlLetters.charAt(controlDigit)
+}
+
 export function validateSpanishTaxId(taxId: string): boolean {
   if (!taxId) return false
-
-  const cleanTaxId = taxId.toUpperCase().replace(/[\s-]/g, "")
-
-  // NIF (DNI) - 8 digits + letter
-  const nifRegex = /^[0-9]{8}[A-Z]$/
-  if (nifRegex.test(cleanTaxId)) {
-    const letters = "TRWAGMYFPDXBNJZSQVHLCKE"
-    const number = Number.parseInt(cleanTaxId.substring(0, 8))
-    const letter = cleanTaxId.charAt(8)
-    return letters.charAt(number % 23) === letter
-  }
-
-  // NIE - X/Y/Z + 7 digits + letter
-  const nieRegex = /^[XYZ][0-9]{7}[A-Z]$/
-  if (nieRegex.test(cleanTaxId)) {
-    const letters = "TRWAGMYFPDXBNJZSQVHLCKE"
-    let number = cleanTaxId.substring(1, 8)
-    const prefix = cleanTaxId.charAt(0)
-    if (prefix === "X") number = `0${number}`
-    else if (prefix === "Y") number = `1${number}`
-    else if (prefix === "Z") number = `2${number}`
-    const letter = cleanTaxId.charAt(8)
-    return letters.charAt(Number.parseInt(number) % 23) === letter
-  }
-
-  // CIF - Letter + 7 digits + letter/digit
-  const cifRegex = /^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/
-  if (cifRegex.test(cleanTaxId)) {
-    const digits = cleanTaxId.substring(1, 8)
-    let sum = 0
-
-    // Sum even positions
-    for (let i = 1; i < 7; i += 2) {
-      sum += Number.parseInt(digits.charAt(i))
-    }
-
-    // Sum odd positions (doubled and digits summed)
-    for (let i = 0; i < 7; i += 2) {
-      const doubled = Number.parseInt(digits.charAt(i)) * 2
-      sum += Math.floor(doubled / 10) + (doubled % 10)
-    }
-
-    const control = (10 - (sum % 10)) % 10
-    const lastChar = cleanTaxId.charAt(8)
-
-    // Check if last character is digit or letter
-    if (/[0-9]/.test(lastChar)) {
-      return control === Number.parseInt(lastChar)
-    }
-    const controlLetters = "JABCDEFGHI"
-    return controlLetters.charAt(control) === lastChar
-  }
-
+  const cleanId = taxId.toUpperCase().replace(/[^A-Z0-9]/g, "")
+  if (cleanId.length !== 9) return false
+  if (/^[0-9]{8}[A-Z]$/.test(cleanId)) return validateNIF(cleanId)
+  if (/^[XYZ][0-9]{7}[A-Z]$/.test(cleanId)) return validateNIE(cleanId)
+  if (/^[ABCDEFGHJKLMNPQRSUVW][0-9]{7}[0-9A-J]$/.test(cleanId)) return validateCIF(cleanId)
   return false
 }
 
-// Types
+export function getTaxIdType(taxId: string): "NIF" | "NIE" | "CIF" | "UNKNOWN" {
+  if (!taxId) return "UNKNOWN"
+  const cleanId = taxId.toUpperCase().replace(/[^A-Z0-9]/g, "")
+  if (/^[0-9]{8}[A-Z]$/.test(cleanId)) return "NIF"
+  if (/^[XYZ][0-9]{7}[A-Z]$/.test(cleanId)) return "NIE"
+  if (/^[ABCDEFGHJKLMNPQRSUVW][0-9]{7}[0-9A-J]$/.test(cleanId)) return "CIF"
+  return "UNKNOWN"
+}
+
+export interface VerifactuConfig {
+  apiUrl: string
+  apiKey: string
+  companyNif: string
+  companyName: string
+  isProduction: boolean
+}
+
+export function getVerifactuConfiguration(): VerifactuConfig {
+  return {
+    apiUrl: process.env.URL_KOREFACTU || "",
+    apiKey: process.env.API_KOREFACTU || "",
+    companyNif: process.env.COMPANY_NIF || "",
+    companyName: process.env.COMPANY_NAME || "",
+    isProduction: process.env.NODE_ENV === "production",
+  }
+}
+
 export interface VerifactuCustomer {
-  id?: string
-  tax_id: string
+  nif: string
   name: string
-  email?: string
-  phone?: string
   address?: string
   city?: string
+  postalCode?: string
   province?: string
-  postal_code?: string
   country?: string
-  business_sector?: string
 }
 
 export interface VerifactuInvoice {
-  id?: string
-  customer_id: string
-  invoice_number: string
-  issue_date: string
-  due_date?: string
-  subtotal: number
-  tax_amount: number
-  total: number
-  status: string
-  items: VerifactuInvoiceItem[]
+  invoiceNumber: string
+  invoiceDate: string
+  customer: VerifactuCustomer
+  totalAmount: number
+  taxAmount: number
+  taxRate: number
 }
 
-export interface VerifactuInvoiceItem {
-  description: string
-  quantity: number
-  unit_price: number
-  tax_rate: number
-  total: number
+export interface VerifactuResponse {
+  success: boolean
+  verifactuId?: string
+  message?: string
+  error?: string
+  simulated?: boolean
 }
 
-// Convert functions
-export function convertToVerifactuCustomer(data: any): VerifactuCustomer {
-  return {
-    id: data.id,
-    tax_id: data.tax_id || data.taxId || "",
-    name: data.name || "",
-    email: data.email,
-    phone: data.phone,
-    address: data.address,
-    city: data.city,
-    province: data.province,
-    postal_code: data.postal_code || data.postalCode,
-    country: data.country || "España",
-    business_sector: data.business_sector || data.businessSector,
-  }
-}
-
-export function convertToVerifactuInvoice(data: any): VerifactuInvoice {
-  return {
-    id: data.id,
-    customer_id: data.customer_id || data.customerId,
-    invoice_number: data.invoice_number || data.invoiceNumber,
-    issue_date: data.issue_date || data.issueDate,
-    due_date: data.due_date || data.dueDate,
-    subtotal: data.subtotal || 0,
-    tax_amount: data.tax_amount || data.taxAmount || 0,
-    total: data.total || 0,
-    status: data.status || "draft",
-    items: data.items || [],
-  }
-}
-
-// Customer Controller
 export class VerifactuCustomerController {
-  private config = getVerifactuConfiguration()
-
-  static async testConnection() {
-    const config = getVerifactuConfiguration()
-
-    if (config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Modo simulación activo. Configura API_KOREFACTU para usar la API real.",
-        config: {
-          apiUrl: config.apiUrl,
-          hasApiKey: false,
-        },
-      }
-    }
-
-    try {
-      const response = await fetch(`${config.apiUrl}/health`, {
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-      })
-
-      if (response.ok) {
-        return {
-          success: true,
-          simulated: false,
-          message: "Conexión exitosa con Korefactu",
-          config: {
-            apiUrl: config.apiUrl,
-            hasApiKey: true,
-          },
-        }
-      }
-
-      return {
-        success: false,
-        error: `Error de conexión: ${response.status}`,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
-    }
+  private config: VerifactuConfig
+  constructor() {
+    this.config = getVerifactuConfiguration()
   }
 
-  async createCustomer(customer: VerifactuCustomer) {
-    if (this.config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Cliente creado en modo simulación",
-        data: {
-          id: `SIM-${Date.now()}`,
-          ...customer,
-        },
-      }
+  async syncCustomer(customer: VerifactuCustomer): Promise<VerifactuResponse> {
+    if (!this.config.apiKey) {
+      return { success: true, verifactuId: `SIM-${Date.now()}`, message: "Modo simulación", simulated: true }
     }
-
     try {
       const response = await fetch(`${this.config.apiUrl}/customers`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.config.apiKey}` },
         body: JSON.stringify(customer),
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          success: true,
-          simulated: false,
-          message: "Cliente creado exitosamente",
-          data,
-        }
-      }
-
-      const error = await response.text()
-      return {
-        success: false,
-        error: `Error al crear cliente: ${error}`,
-      }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`)
+      const data = await response.json()
+      return { success: true, verifactuId: data.id || data.verifactuId, message: "Cliente sincronizado" }
     } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
+      return { success: false, error: error instanceof Error ? error.message : "Error desconocido" }
     }
   }
 
-  async updateCustomer(id: string, customer: Partial<VerifactuCustomer>) {
-    if (this.config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Cliente actualizado en modo simulación",
-        data: {
-          id,
-          ...customer,
-        },
-      }
-    }
-
+  async getCustomer(nif: string): Promise<VerifactuResponse & { customer?: VerifactuCustomer }> {
+    if (!this.config.apiKey) return { success: false, error: "API key no configurada", simulated: true }
     try {
-      const response = await fetch(`${this.config.apiUrl}/customers/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
-        body: JSON.stringify(customer),
+      const response = await fetch(`${this.config.apiUrl}/customers/${nif}`, {
+        headers: { Authorization: `Bearer ${this.config.apiKey}` },
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          success: true,
-          simulated: false,
-          message: "Cliente actualizado exitosamente",
-          data,
-        }
+      if (!response.ok) {
+        if (response.status === 404) return { success: false, error: "Cliente no encontrado" }
+        throw new Error(`Error HTTP: ${response.status}`)
       }
-
-      const error = await response.text()
-      return {
-        success: false,
-        error: `Error al actualizar cliente: ${error}`,
-      }
+      return { success: true, customer: await response.json() }
     } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
-    }
-  }
-
-  static async create(customer: VerifactuCustomer) {
-    const controller = new VerifactuCustomerController()
-    return controller.createCustomer(customer)
-  }
-
-  static async update(id: number, customer: Partial<VerifactuCustomer>) {
-    const controller = new VerifactuCustomerController()
-    return controller.updateCustomer(id.toString(), customer)
-  }
-
-  static async delete(id: number) {
-    const controller = new VerifactuCustomerController()
-    const config = getVerifactuConfiguration()
-
-    if (config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Cliente eliminado en modo simulación",
-      }
-    }
-
-    try {
-      const response = await fetch(`${config.apiUrl}/customers/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-        },
-      })
-
-      if (response.ok) {
-        return {
-          success: true,
-          simulated: false,
-          message: "Cliente eliminado exitosamente",
-        }
-      }
-
-      const error = await response.text()
-      return {
-        success: false,
-        error: `Error al eliminar cliente: ${error}`,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
+      return { success: false, error: error instanceof Error ? error.message : "Error desconocido" }
     }
   }
 }
 
-// Invoice Controller
 export class VerifactuInvoiceController {
-  private config = getVerifactuConfiguration()
+  private config: VerifactuConfig
+  constructor() {
+    this.config = getVerifactuConfiguration()
+  }
 
-  async createInvoice(invoice: VerifactuInvoice) {
-    if (this.config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Factura creada en modo simulación",
-        data: {
-          id: `SIM-INV-${Date.now()}`,
-          ...invoice,
-        },
-      }
+  async submitInvoice(invoice: VerifactuInvoice): Promise<VerifactuResponse> {
+    if (!this.config.apiKey) {
+      return { success: true, verifactuId: `SIM-INV-${Date.now()}`, message: "Modo simulación", simulated: true }
     }
-
     try {
       const response = await fetch(`${this.config.apiUrl}/invoices`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.config.apiKey}` },
         body: JSON.stringify(invoice),
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          success: true,
-          simulated: false,
-          message: "Factura creada exitosamente",
-          data,
-        }
-      }
-
-      const error = await response.text()
-      return {
-        success: false,
-        error: `Error al crear factura: ${error}`,
-      }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`)
+      const data = await response.json()
+      return { success: true, verifactuId: data.id || data.verifactuId, message: "Factura enviada" }
     } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
+      return { success: false, error: error instanceof Error ? error.message : "Error desconocido" }
     }
   }
 
-  async updateInvoice(id: string, invoice: Partial<VerifactuInvoice>) {
-    if (this.config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Factura actualizada en modo simulación",
-        data: {
-          id,
-          ...invoice,
-        },
-      }
-    }
-
+  async getInvoiceStatus(invoiceId: string): Promise<VerifactuResponse> {
+    if (!this.config.apiKey) return { success: true, message: "Modo simulación", simulated: true }
     try {
-      const response = await fetch(`${this.config.apiUrl}/invoices/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
-        body: JSON.stringify(invoice),
+      const response = await fetch(`${this.config.apiUrl}/invoices/${invoiceId}`, {
+        headers: { Authorization: `Bearer ${this.config.apiKey}` },
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          success: true,
-          simulated: false,
-          message: "Factura actualizada exitosamente",
-          data,
-        }
-      }
-
-      const error = await response.text()
-      return {
-        success: false,
-        error: `Error al actualizar factura: ${error}`,
-      }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`)
+      const data = await response.json()
+      return { success: true, verifactuId: invoiceId, message: data.status || "Enviada" }
     } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
+      return { success: false, error: error instanceof Error ? error.message : "Error desconocido" }
     }
   }
+}
 
-  async deleteInvoice(id: string) {
-    if (this.config.isSimulated) {
-      return {
-        success: true,
-        simulated: true,
-        message: "Factura eliminada en modo simulación",
-      }
-    }
+export function convertToVerifactuCustomer(customer: {
+  tax_id: string
+  name: string
+  address?: string
+  city?: string
+  postal_code?: string
+  province?: string
+  country?: string
+}): VerifactuCustomer {
+  return {
+    nif: customer.tax_id,
+    name: customer.name,
+    address: customer.address,
+    city: customer.city,
+    postalCode: customer.postal_code,
+    province: customer.province,
+    country: customer.country || "España",
+  }
+}
 
-    try {
-      const response = await fetch(`${this.config.apiUrl}/invoices/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey}`,
-        },
-      })
-
-      if (response.ok) {
-        return {
-          success: true,
-          simulated: false,
-          message: "Factura eliminada exitosamente",
-        }
-      }
-
-      const error = await response.text()
-      return {
-        success: false,
-        error: `Error al eliminar factura: ${error}`,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: `Error de red: ${error instanceof Error ? error.message : "Error desconocido"}`,
-      }
-    }
+export function convertToVerifactuInvoice(invoice: {
+  invoice_number: string
+  invoice_date: string
+  customer: {
+    tax_id: string
+    name: string
+    address?: string
+    city?: string
+    postal_code?: string
+    province?: string
+    country?: string
+  }
+  total_amount: number
+  tax_amount: number
+  tax_rate: number
+}): VerifactuInvoice {
+  return {
+    invoiceNumber: invoice.invoice_number,
+    invoiceDate: invoice.invoice_date,
+    customer: convertToVerifactuCustomer(invoice.customer),
+    totalAmount: invoice.total_amount,
+    taxAmount: invoice.tax_amount,
+    taxRate: invoice.tax_rate,
   }
 }
