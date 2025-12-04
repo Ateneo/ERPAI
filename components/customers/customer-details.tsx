@@ -1,128 +1,168 @@
 "use client"
 
-import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  User,
+  ArrowLeft,
+  Edit,
+  Trash2,
   Mail,
   Phone,
   MapPin,
   Building,
   Globe,
-  Calendar,
-  CreditCard,
   FileText,
-  AlertCircle,
-  CheckCircle,
+  User,
+  Calendar,
   Clock,
-  Edit,
-  ExternalLink,
   Euro,
-  Users,
-  TrendingUp,
+  CreditCard,
   Shield,
+  TrendingUp,
+  Users,
+  ExternalLink,
+  CheckCircle,
 } from "lucide-react"
-import { formatCurrency, formatDate, formatRelativeTime, formatDateTime } from "@/lib/utils"
-import type { Customer } from "@/lib/supabase-customers"
+import { CustomerServicesTab } from "./customer-services-tab"
+
+interface Customer {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  address?: string
+  city?: string
+  postal_code?: string
+  province?: string
+  country?: string
+  tax_id?: string
+  vat_number?: string
+  sector?: string
+  status?: string
+  notes?: string
+  contact_person?: string
+  website?: string
+  commercial_name?: string
+  business_activity?: string
+  cnae_code?: string
+  legal_form?: string
+  registration_number?: string
+  registration_date?: string
+  share_capital?: number
+  employees_count?: number
+  annual_revenue?: number
+  credit_limit?: number
+  payment_terms?: number
+  preferred_payment_method?: string
+  bank_account?: string
+  swift_code?: string
+  tax_regime?: string
+  administrator?: string
+  administrator_nif?: string
+  mutual_insurance?: string
+  social_security_number?: string
+  risk_level?: string
+  customer_since?: string
+  last_order_date?: string
+  total_orders?: number
+  average_order_value?: number
+  verifactu_id?: string
+  verifactu_status?: string
+  verifactu_message?: string
+  verifactu_synced_at?: string
+  created_at?: string
+  updated_at?: string
+}
 
 interface CustomerDetailsProps {
   customer: Customer
-  onEdit?: () => void
+  onBack: () => void
+  onEdit: () => void
+  onDelete: () => void
 }
 
-export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
-  const [isLoading, setIsLoading] = useState(false)
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount)
+}
 
-  const getStatusBadge = (status?: string) => {
-    switch (status) {
-      case "synced":
-        return (
-          <Badge variant="default" className="bg-green-100 text-green-800">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Sincronizado
-          </Badge>
-        )
-      case "error":
-        return (
-          <Badge variant="destructive">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            Error
-          </Badge>
-        )
-      case "simulated":
-        return (
-          <Badge variant="secondary">
-            <Clock className="w-3 h-3 mr-1" />
-            Simulado
-          </Badge>
-        )
-      case "pending":
-      default:
-        return (
-          <Badge variant="outline">
-            <Clock className="w-3 h-3 mr-1" />
-            Pendiente
-          </Badge>
-        )
-    }
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString("es-ES")
+}
+
+const formatDateTime = (dateString: string) => {
+  return new Date(dateString).toLocaleString("es-ES")
+}
+
+const getStatusBadge = (status?: string) => {
+  switch (status) {
+    case "synced":
+      return <Badge className="bg-green-100 text-green-800">Sincronizado</Badge>
+    case "pending":
+      return <Badge className="bg-yellow-100 text-yellow-800">Pendiente</Badge>
+    case "error":
+      return <Badge className="bg-red-100 text-red-800">Error</Badge>
+    default:
+      return <Badge className="bg-gray-100 text-gray-800">Sin sincronizar</Badge>
   }
+}
 
-  const getRiskBadge = (risk?: string) => {
-    switch (risk) {
-      case "low":
-        return (
-          <Badge variant="default" className="bg-green-100 text-green-800">
-            Bajo
-          </Badge>
-        )
-      case "medium":
-        return (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-            Medio
-          </Badge>
-        )
-      case "high":
-        return <Badge variant="destructive">Alto</Badge>
-      default:
-        return <Badge variant="outline">No definido</Badge>
-    }
+const getRiskBadge = (risk?: string) => {
+  switch (risk) {
+    case "low":
+      return <Badge className="bg-green-100 text-green-800">Bajo</Badge>
+    case "medium":
+      return <Badge className="bg-yellow-100 text-yellow-800">Medio</Badge>
+    case "high":
+      return <Badge className="bg-red-100 text-red-800">Alto</Badge>
+    default:
+      return <Badge className="bg-gray-100 text-gray-800">Sin evaluar</Badge>
+  }
+}
+
+export function CustomerDetails({ customer, onBack, onEdit, onDelete }: CustomerDetailsProps) {
+  if (!customer) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-muted-foreground">Cargando cliente...</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{customer.name}</h1>
-            {!customer.is_active && <Badge variant="secondary">Inactivo</Badge>}
-          </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              Cliente desde {formatDate(customer.created_at)}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-4 h-4" />
-              Actualizado {formatRelativeTime(customer.updated_at)}
-            </span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold">{customer.name}</h2>
+            <p className="text-muted-foreground">{customer.tax_id}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {getStatusBadge(customer.verifactu_status)}
-          <Button onClick={onEdit} variant="outline" size="sm">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onEdit}>
             <Edit className="w-4 h-4 mr-2" />
             Editar
+          </Button>
+          <Button variant="destructive" onClick={onDelete}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Eliminar
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="services">Servicios</TabsTrigger>
           <TabsTrigger value="commercial">Comercial</TabsTrigger>
           <TabsTrigger value="financial">Financiero</TabsTrigger>
           <TabsTrigger value="legal">Legal</TabsTrigger>
@@ -152,7 +192,7 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
                   <div className="flex items-center gap-3">
                     <Phone className="w-4 h-4 text-muted-foreground" />
                     <div>
-                      <p className="font-medium">{customer.phone}</p>
+                      <p className="font-medium">{customer.phone || "No especificado"}</p>
                       <p className="text-sm text-muted-foreground">Teléfono</p>
                     </div>
                   </div>
@@ -244,7 +284,7 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <p className="font-medium">{customer.tax_id}</p>
+                  <p className="font-medium">{customer.tax_id || "No especificado"}</p>
                   <p className="text-sm text-muted-foreground">NIF/CIF</p>
                 </div>
                 {customer.vat_number && (
@@ -264,10 +304,13 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
           </Card>
         </TabsContent>
 
+        <TabsContent value="services">
+          <CustomerServicesTab customerId={customer.id} customerName={customer.name} />
+        </TabsContent>
+
         {/* Commercial Tab */}
         <TabsContent value="commercial" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Business Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -303,7 +346,6 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
               </CardContent>
             </Card>
 
-            {/* Company Stats */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -346,7 +388,6 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
             </Card>
           </div>
 
-          {/* Customer Timeline */}
           <Card>
             <CardHeader>
               <CardTitle>Historial del Cliente</CardTitle>
@@ -377,7 +418,6 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
         {/* Financial Tab */}
         <TabsContent value="financial" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Payment Information */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -419,7 +459,6 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
               </CardContent>
             </Card>
 
-            {/* Risk Assessment */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -506,7 +545,6 @@ export function CustomerDetails({ customer, onEdit }: CustomerDetailsProps) {
             </CardContent>
           </Card>
 
-          {/* Verifactu Status */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

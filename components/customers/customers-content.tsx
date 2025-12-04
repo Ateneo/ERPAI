@@ -263,7 +263,7 @@ export function CustomersContent() {
               </Button>
               <h2 className="text-2xl font-bold">Detalles de {selectedCustomer.name}</h2>
             </div>
-            <CustomerDetails customerId={selectedCustomer.id} />
+            <CustomerDetails customer={selectedCustomer} onEdit={() => handleEditCustomer(selectedCustomer)} />
           </div>
         )
 

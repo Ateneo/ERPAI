@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   Users,
   FileText,
+  Package,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
@@ -29,6 +30,7 @@ const navigation = [
   { name: "Panel Principal", href: "/", icon: Home },
   { name: "Analíticas", href: "/analytics", icon: BarChart2 },
   { name: "Clientes", href: "/customers", icon: Users },
+  { name: "Servicios", href: "/services", icon: Package },
   { name: "Preventas", href: "/preventas", icon: FileText },
   { name: "Organización", href: "/organization", icon: Building2 },
   { name: "Proyectos", href: "/projects", icon: Folder },
